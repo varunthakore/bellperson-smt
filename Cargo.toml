@@ -1,0 +1,20 @@
+[package]
+name = "bellperson-smt"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ark-ff = "0.4.2"
+bellperson = { version = "0.24", default-features = false }
+bitvec = "1.0.1"
+blstrs = "0.6.1"
+failure = "0.1.8"
+ff = "0.13.0"
+fnv = "1.0.7"
+generic-array = "0.14.6"
+neptune = { version = "8.1.0", default-features = false }
+num-bigint = "0.4.3"
+pasta_curves = { version = "0.5.2", package = "fil_pasta_curves", features = ["repr-c", "serde"] }
+rand = "0.8.5"
