@@ -44,7 +44,7 @@ impl<F: PrimeField + PrimeFieldBits, const N: usize> SparseMerkleTree<F, N> {
         hash_db: &mut HashMap<String, (F,F)>,
     ) {
 
-        let mut siblings = self.get_siblings_path(idx_in_bits.clone(), hash_db).path;
+        let mut siblings = self.get_siblings_path(idx_in_bits.clone(), hash_db).siblings;
 
         // let mut path = self.get_path(idx);
 
@@ -101,7 +101,7 @@ impl<F: PrimeField + PrimeFieldBits, const N: usize> SparseMerkleTree<F, N> {
         }
         // Ok((cur_node.clone() , siblings))
         Path{ 
-            path: siblings,
+            siblings: siblings,
             leaf_hash_params: &self.leaf_hash_params,
             node_hash_params: &self.node_hash_params
         }
@@ -138,7 +138,7 @@ where
 	F: PrimeField + PrimeFieldBits,
 {
 	// #[allow(clippy::type_complexity)]
-	pub path: Vec<F>, // siblings from root to leaf
+	pub siblings: Vec<F>, // siblings from root to leaf
     pub leaf_hash_params: &'a PoseidonConstants<F, U1>,
     pub node_hash_params: &'a PoseidonConstants<F, U2>
 	// phantom: PhantomData<H>,
@@ -150,12 +150,12 @@ impl<'a, F: PrimeField + PrimeFieldBits, const N: usize> Path<'a, F, N> {
         mut idx_in_bits: Vec<bool>,
         val: F,
     ) -> F {
-        assert_eq!(self.path.len(), N);
+        assert_eq!(self.siblings.len(), N);
         idx_in_bits.reverse();
 
         let mut cur_hash = Poseidon::new_with_preimage(&[val],&self.leaf_hash_params).hash();
 
-        for (i, sibling) in self.path.clone().into_iter().rev().enumerate() {
+        for (i, sibling) in self.siblings.clone().into_iter().rev().enumerate() {
             let (l, r) = if idx_in_bits[i] == false {
                 // leaf falls on the left side
                 (cur_hash, sibling)
