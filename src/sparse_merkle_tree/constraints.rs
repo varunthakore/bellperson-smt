@@ -3,14 +3,13 @@ use pasta_curves::{
 };
 // use ff::{Field, PrimeField};
 use neptune::{
-    circuit::poseidon_hash,
+    // circuit::poseidon_hash,
+    circuit2::poseidon_hash_allocated,
     poseidon::{PoseidonConstants},
-    Arity
 };
 use generic_array::typenum::{U2, U1};
-
 use bellperson::{Circuit, ConstraintSystem, SynthesisError, gadgets::{num::AllocatedNum, boolean::{AllocatedBit, Boolean}}};
-
+// use crate::sparse_merkle_tree::smt::Path;
 struct PathVerifyCircuit<F: PrimeField> {
     pub siblings: Vec<F>, // from root to leaf
     pub root: F,
@@ -18,6 +17,7 @@ struct PathVerifyCircuit<F: PrimeField> {
     pub idx: Vec<bool>, // from root to leaf
     pub leaf_hash_params: PoseidonConstants<F, U1>,
     pub node_hash_params: PoseidonConstants<F, U2>
+    // pub path: Path<'a, >
 }
 
 impl<F: PrimeField> Circuit<F> for PathVerifyCircuit<F> {
@@ -39,20 +39,46 @@ impl<F: PrimeField> Circuit<F> for PathVerifyCircuit<F> {
             .collect::<Result<Vec<AllocatedBit>, SynthesisError>>()?
         ;
 
-        let mut cur_hash_var = poseidon_hash(&mut *cs, vec![val_var], &self.leaf_hash_params)?;
+        let mut cur_hash_var = poseidon_hash_allocated(&mut *cs, vec![val_var], &self.leaf_hash_params)?;
 
         idx_var.reverse(); // Going from leaf to root
 
         for (i, sibling) in siblings_var.clone().into_iter().rev().enumerate() {
-    
 
             let (lc, rc) = AllocatedNum::conditionally_reverse(&mut *cs, &cur_hash_var, &sibling, &Boolean::from(idx_var[i].clone()))?;
+            cur_hash_var = poseidon_hash_allocated(&mut *cs, vec![lc, rc], &self.node_hash_params)?;
 
         }
+
+        cs.enforce(
+            || "root = calc_root", 
+            |lc| lc + root_var.get_variable(), 
+            |lc| lc + CS::one(), 
+            |lc| lc + cur_hash_var.get_variable()
+        );
 
         Ok(())
 
 
     }
     
+}
+
+#[cfg(test)]
+mod test {
+    use bellperson::Circuit;
+    // use neptune::circuit2::poseidon_hash_allocated;
+    use pasta_curves::pallas::Base as Fp;
+    
+    use neptune::poseidon::{PoseidonConstants, Poseidon};
+    // use neptune::circuit::poseidon_hash;
+    use generic_array::typenum::U2;
+    use bellperson::{util_cs::test_cs::TestConstraintSystem ,
+        // ConstraintSystem, gadgets::num::AllocatedNum
+    };
+
+    #[test]
+    pub fn valid_path() {
+    
+    }
 }

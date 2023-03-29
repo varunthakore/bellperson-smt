@@ -3,10 +3,12 @@ use pasta_curves::{
 };
 // use ff::{Field, PrimeField};
 use neptune::{
-    circuit::poseidon_hash,
+    // circuit::poseidon_hash,
     poseidon::{PoseidonConstants},
     Arity
 };
+
+use neptune::circuit2::poseidon_hash_allocated;
 
 use bellperson::{Circuit, ConstraintSystem, SynthesisError, gadgets::num::AllocatedNum};
 
@@ -24,7 +26,7 @@ impl<F: PrimeField, A: Arity<F>> Circuit<F> for PoseidonCircuit<F, A> {
         let xr = AllocatedNum::alloc(cs.namespace(|| "preimage xr"), || Ok(self.xr))?;
         let node = AllocatedNum::alloc_input(cs.namespace(|| "hash node"), || Ok(self.node))?;
 
-        let calc_node = poseidon_hash(&mut *cs, vec![xl, xr], &self.params)?;
+        let calc_node = poseidon_hash_allocated(&mut *cs, vec![xl, xr], &self.params)?;
 
         cs.enforce(
             || "node = calc_node", 
@@ -41,6 +43,7 @@ impl<F: PrimeField, A: Arity<F>> Circuit<F> for PoseidonCircuit<F, A> {
 #[cfg(test)]
 mod tests {
     use bellperson::Circuit;
+    // use neptune::circuit2::poseidon_hash_allocated;
     use pasta_curves::pallas::Base as Fp;
     
     use neptune::poseidon::{PoseidonConstants, Poseidon};
@@ -60,7 +63,7 @@ mod tests {
         let node_hash_params = PoseidonConstants::<Fp, U2>::new();
         let mut node_hasher = Poseidon::new_with_preimage(&[leaf_present.double(), leaf_present],&node_hash_params);
         let hash_value = node_hasher.hash();
-        println!("the hash value is {:?}", hash_value);
+        // println!("the hash value is {:?}", hash_value);
 
         let circ = PoseidonCircuit {
             xl: leaf_present.double(),
@@ -71,22 +74,23 @@ mod tests {
 
         let mut cs = TestConstraintSystem::<Fp>::new();
 
+        println!("the number of constraints are {}", cs.num_constraints());
 
         
         assert!(!circ.synthesize(& mut cs).is_err());
 
-        println!("the number of constarins are {}", cs.num_constraints());
+        println!("the number of constraints are {}", cs.num_constraints());
 
         assert!(cs.is_satisfied());
 
         println!("constraint satisfied is {:?}", cs.is_satisfied());
 
-        println!("the inputs are {:?}", cs.get_inputs());
+        // println!("the inputs are {:?}", cs.get_inputs());
 
-        // let xl = AllocatedNum::alloc(cs.namespace(|| "preimage xl"), || Ok(leaf_present)).unwrap();
+        // let xl = AllocatedNum::alloc(cs.namespace(|| "preimage xl"), || Ok(leaf_present.double())).unwrap();
         // let xr = AllocatedNum::alloc(cs.namespace(|| "preimage xr"), || Ok(leaf_present)).unwrap();
-        // let calc_node = poseidon_hash(&mut cs, vec![xl, xr], &node_hash_params).unwrap();
-        // println!("calc_node hash is {:?}",calc_node.get_variable());
+        // let calc_node = poseidon_hash_allocated(&mut cs, vec![xl, xr], &node_hash_params).unwrap();
+        // println!("calc_node hash is {:?}",calc_node.get_value().unwrap());
 
     }
 }
