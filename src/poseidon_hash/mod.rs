@@ -1,6 +1,7 @@
 pub mod gadget;
 pub mod matrix;
 pub mod mds;
+pub mod constraints;
 
 // use pasta_curves::group::ff::PrimeField;
 // use neptune::{
