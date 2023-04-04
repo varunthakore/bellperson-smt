@@ -6,7 +6,7 @@ use neptune::{
     // circuit::poseidon_hash,
     circuit2::poseidon_hash_allocated,
     // poseidon::{PoseidonConstants},
-    sponge::circuit::SpongeCircuit,
+    // sponge::circuit::SpongeCircuit,
 };
 // use generic_array::typenum::{U2, U1};
 use bellperson::{Circuit, ConstraintSystem, SynthesisError, gadgets::{num::AllocatedNum, boolean::{AllocatedBit, Boolean}}};
@@ -40,14 +40,14 @@ impl<'a, F: PrimeField + PrimeFieldBits, const N: usize> Circuit<F> for PathVeri
             .collect::<Result<Vec<AllocatedBit>, SynthesisError>>()?
         ;
 
-        let mut cur_hash_var = poseidon_hash_allocated(&mut *cs, vec![val_var], &self.path.leaf_hash_params)?;
+        let mut cur_hash_var = poseidon_hash_allocated(&mut cs.namespace(|| "hash num -1 :"), vec![val_var], &self.path.leaf_hash_params)?;
 
         idx_var.reverse(); // Going from leaf to root
 
         for (i, sibling) in siblings_var.clone().into_iter().rev().enumerate() {
 
-            let (lc, rc) = AllocatedNum::conditionally_reverse(&mut *cs, &cur_hash_var, &sibling, &Boolean::from(idx_var[i].clone()))?;
-            cur_hash_var = poseidon_hash_allocated(&mut *cs, vec![lc, rc], &self.path.node_hash_params)?;
+            let (lc, rc) = AllocatedNum::conditionally_reverse(&mut cs.namespace(|| format!("rev num {} :", i)), &cur_hash_var, &sibling, &Boolean::from(idx_var[i].clone()))?;
+            cur_hash_var = poseidon_hash_allocated(&mut cs.namespace(|| format!("hash num {} :", i)), vec![lc, rc], &self.path.node_hash_params)?;
 
         }
 
@@ -120,10 +120,127 @@ mod test {
         
         assert!(!circ.synthesize(& mut cs).is_err());
 
-        // println!("the number of constraints are {}", cs.num_constraints());
+        println!("the number of constraints are {}", cs.num_constraints());
 
-        // assert!(cs.is_satisfied());
+        assert!(cs.is_satisfied());
 
-        // println!("constraint satisfied is {:?}", cs.is_satisfied());
+        println!("constraint satisfied is {:?}", cs.is_satisfied());
+    }
+
+    #[test]
+    pub fn invalid_root() {
+        let mut db = HashMap::<String, (Fp, Fp)>::new();
+        const HEIGHT: usize = 256;
+        let empty_leaf_val = Fp::zero();    
+
+        let mut tree: SparseMerkleTree<Fp, HEIGHT> = SparseMerkleTree::new(empty_leaf_val, HEIGHT, &mut db);
+
+        let present_leaf_val = Fp::one();
+
+        let idx = Fp::random(&mut thread_rng());
+        let idx_in_bits = idx_to_bits(HEIGHT, idx);
+        tree.update(idx_in_bits.clone(), present_leaf_val, &mut db);
+
+        let path = tree.get_siblings_path(idx_in_bits.clone(), &db);
+
+        assert!(path.verify(idx_in_bits.clone(), present_leaf_val, tree.root));
+
+        let circ = PathVerifyCircuit {
+            root: Fp::random(&mut thread_rng()),
+            val: present_leaf_val,
+            idx: idx_in_bits,
+            path: path
+        };
+
+        let mut cs = TestConstraintSystem::<Fp>::new();
+
+        println!("the number of constraints are {}", cs.num_constraints());
+        
+        assert!(!circ.synthesize(& mut cs).is_err());
+
+        println!("the number of constraints are {}", cs.num_constraints());
+
+        assert!(!cs.is_satisfied());
+
+        println!("constraint satisfied is {:?}", cs.is_satisfied());
+    }
+
+    #[test]
+    pub fn invalid_leaf_val() {
+        let mut db = HashMap::<String, (Fp, Fp)>::new();
+        const HEIGHT: usize = 256;
+        let empty_leaf_val = Fp::zero();    
+
+        let mut tree: SparseMerkleTree<Fp, HEIGHT> = SparseMerkleTree::new(empty_leaf_val, HEIGHT, &mut db);
+
+        let present_leaf_val = Fp::one();
+
+        let idx = Fp::random(&mut thread_rng());
+        let idx_in_bits = idx_to_bits(HEIGHT, idx);
+        tree.update(idx_in_bits.clone(), present_leaf_val, &mut db);
+
+        let path = tree.get_siblings_path(idx_in_bits.clone(), &db);
+
+        assert!(path.verify(idx_in_bits.clone(), present_leaf_val, tree.root));
+
+        let circ = PathVerifyCircuit {
+            root: tree.root,
+            val: Fp::random(&mut thread_rng()),
+            idx: idx_in_bits,
+            path: path
+        };
+
+        let mut cs = TestConstraintSystem::<Fp>::new();
+
+        println!("the number of constraints are {}", cs.num_constraints());
+        
+        assert!(!circ.synthesize(& mut cs).is_err());
+
+        println!("the number of constraints are {}", cs.num_constraints());
+
+        assert!(!cs.is_satisfied());
+
+        println!("constraint satisfied is {:?}", cs.is_satisfied());
+    }
+
+    #[test]
+    pub fn invalid_idx() {
+        let mut db = HashMap::<String, (Fp, Fp)>::new();
+        const HEIGHT: usize = 256;
+        let empty_leaf_val = Fp::zero();    
+
+        let mut tree: SparseMerkleTree<Fp, HEIGHT> = SparseMerkleTree::new(empty_leaf_val, HEIGHT, &mut db);
+
+        let present_leaf_val = Fp::one();
+
+        let idx = Fp::random(&mut thread_rng());
+        let idx_in_bits = idx_to_bits(HEIGHT, idx);
+        tree.update(idx_in_bits.clone(), present_leaf_val, &mut db);
+
+        let path = tree.get_siblings_path(idx_in_bits.clone(), &db);
+
+        assert!(path.verify(idx_in_bits.clone(), present_leaf_val, tree.root));
+
+        let invalid_idx = Fp::random(&mut thread_rng());
+        let invalid_idx_in_bits = idx_to_bits(HEIGHT, invalid_idx);
+
+        let circ = PathVerifyCircuit {
+            root: tree.root,
+            val: present_leaf_val,
+            idx: invalid_idx_in_bits,
+            path: path
+        };
+
+        let mut cs = TestConstraintSystem::<Fp>::new();
+
+        println!("the number of constraints are {}", cs.num_constraints());
+        
+        assert!(!circ.synthesize(& mut cs).is_err());
+
+        println!("the number of constraints are {}", cs.num_constraints());
+
+        assert!(!cs.is_satisfied());
+
+        println!("constraint satisfied is {:?}", cs.is_satisfied());
     }
 }
