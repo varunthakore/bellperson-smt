@@ -1,20 +1,17 @@
 use pasta_curves::{
     group::ff::PrimeField,
 };
-
+// use ff::{Field, PrimeField};
 use neptune::{
-    poseidon::{PoseidonConstants, Arity},
+    // circuit::poseidon_hash,
+    poseidon::{PoseidonConstants},
+    Arity
 };
 
-use crate::poseidon_hash::matrix::Matrix;
-use crate::poseidon_hash::mds::SparseMatrix;
-use bellperson::gadgets::boolean::Boolean;
-use bellperson::gadgets::num::{self, AllocatedNum};
-use bellperson::{ConstraintSystem, LinearCombination, SynthesisError};
-use std::marker::PhantomData;
-use bellperson::Circuit;
+use neptune::circuit2::poseidon_hash_allocated;
 
-use crate::poseidon_hash::gadget::poseidon_hash_allocated;
+use bellperson::{Circuit, ConstraintSystem, SynthesisError, gadgets::num::AllocatedNum};
+
 
 struct PoseidonCircuit<F: PrimeField, A: Arity<F>> {
     pub xl: F,
@@ -29,9 +26,7 @@ impl<F: PrimeField, A: Arity<F>> Circuit<F> for PoseidonCircuit<F, A> {
         let xr = AllocatedNum::alloc(cs.namespace(|| "preimage xr"), || Ok(self.xr))?;
         let node = AllocatedNum::alloc_input(cs.namespace(|| "hash node"), || Ok(self.node))?;
 
-        let i = 0;
-
-        let calc_node = poseidon_hash_allocated(&mut *cs, vec![xl, xr], &self.params, i)?;
+        let calc_node = poseidon_hash_allocated(&mut *cs, vec![xl, xr], &self.params)?;
 
         cs.enforce(
             || "node = calc_node", 
